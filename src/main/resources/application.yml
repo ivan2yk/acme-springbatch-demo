@@ -17,10 +17,10 @@ spring:
 
 acme:
   datasource:
-    url: jdbc:oracle:thin:@localhost:1521/xe
-    username: SYSTEM
-    password: admin.123
-    driver-class-name: oracle.jdbc.OracleDriver
+    url: jdbc:postgresql://localhost:5432/acme
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
     jdbcUrl: ${acme.datasource.url}
 
 # application specific properties

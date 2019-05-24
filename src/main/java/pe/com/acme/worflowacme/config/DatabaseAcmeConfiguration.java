@@ -38,7 +38,8 @@ public class DatabaseAcmeConfiguration {
                                                                     @Qualifier("acmeDataSource") DataSource dataSource) {
         Map<String, Object> props = new HashMap<>();
         props.put("hibernate.hbm2ddl.auto", "none");
-        props.put("hibernate.dialect", "org.hibernate.dialect.Oracle10gDialect");
+        props.put("hibernate.dialect", "org.hibernate.dialect.PostgreSQL9Dialect");
+        props.put("hibernate.temp.use_jdbc_metadata_defaults", "false");
         props.put("hibernate.show_sql", "true");
         props.put("hibernate.format_sql", "true");
 
