@@ -1,0 +1,29 @@
+# @EnableBatchProcessing create a runner by default and execute the jobs on startup
+# spring.batch.job.enabled: To disable execution on startup
+
+spring:
+  batch:
+    job:
+      enabled: false
+    initialize-schema: always
+  datasource:
+    url: jdbc:h2:mem:batchdb
+    username: sa
+    password: sa
+    driver-class-name: org.h2.Driver
+    jdbcUrl: ${spring.datasource.url}
+  jpa:
+    database: default
+
+acme:
+  datasource:
+    url: jdbc:oracle:thin:@localhost:1521/xe
+    username: SYSTEM
+    password: admin.123
+    driver-class-name: oracle.jdbc.OracleDriver
+    jdbcUrl: ${acme.datasource.url}
+
+# application specific properties
+application:
+  batch:
+    inputPath: D:\workspaces\workspace-pluralsight\worflowacme\data
