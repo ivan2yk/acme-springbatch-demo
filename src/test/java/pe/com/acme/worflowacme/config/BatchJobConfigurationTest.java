@@ -30,7 +30,7 @@ import static org.junit.Assert.fail;
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest
-@ActiveProfiles("dev")
+@ActiveProfiles("test")
 @Slf4j
 public class BatchJobConfigurationTest {
 

@@ -1,0 +1,34 @@
+# @EnableBatchProcessing create a runner by default and execute the jobs on startup
+# spring.batch.job.enabled: To disable execution on startup
+
+spring:
+  batch:
+    job:
+      enabled: false
+    initialize-schema: always
+  datasource:
+    url: jdbc:h2:mem:batchdb
+    username: sa
+    password: sa
+    driver-class-name: org.h2.Driver
+    jdbcUrl: ${spring.datasource.url}
+  jpa:
+    database: default
+
+acme:
+  datasource:
+    url: jdbc:h2:mem:acme
+    username: sa
+    password: sa
+    driver-class-name: org.h2.Driver
+    jdbcUrl: ${acme.datasource.url}
+
+# logging
+logging:
+  level:
+    pe.com.acme: DEBUG
+
+# application specific properties
+application:
+  batch:
+    inputPath: $TRAVIS_BUILD_DIR/data
