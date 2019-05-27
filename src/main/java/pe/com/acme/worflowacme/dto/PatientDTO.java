@@ -2,6 +2,8 @@ package pe.com.acme.worflowacme.dto;
 
 import lombok.*;
 
+import java.io.Serializable;
+
 /**
  * Created by Ivan on 22/05/2019.
  */
@@ -10,8 +12,10 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class PatientDTO {
+@ToString(of = {"sourceId", "firstName", "lastName"})
+public class PatientDTO implements Serializable {
 
+    private static final long serialVersionUID = 2574063110603295300L;
     private String sourceId;
     private String firstName;
     private String middleInitial;

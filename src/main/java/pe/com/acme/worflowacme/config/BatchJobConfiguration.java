@@ -1,29 +1,40 @@
 package pe.com.acme.worflowacme.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.configuration.support.JobRegistryBeanPostProcessor;
-import org.springframework.batch.core.scope.context.ChunkContext;
-import org.springframework.batch.core.step.tasklet.Tasklet;
-import org.springframework.batch.repeat.RepeatStatus;
+import org.springframework.batch.item.ItemReader;
+import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.file.FlatFileItemReader;
+import org.springframework.batch.item.file.LineMapper;
+import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
+import org.springframework.batch.item.file.mapping.DefaultLineMapper;
+import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
+import org.springframework.batch.item.support.PassThroughItemProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.util.StringUtils;
+import pe.com.acme.worflowacme.dto.PatientDTO;
 import pe.com.acme.worflowacme.util.Constants;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 /**
  * Created by Ivan on 22/05/2019.
  */
 @Configuration
+@Slf4j
 public class BatchJobConfiguration {
 
     private String inputPath;
@@ -32,13 +43,13 @@ public class BatchJobConfiguration {
     // provide the dsl for configure the job
     private JobBuilderFactory jobBuilderFactory;
 
-    // factory for getting the type of builder required for step configuration
+    // StepBuilderFactory. factory for getting the type of builder required for step configuration
     // steps are configured to use the concept of a tasklet. tasklet defines what task the step will perform
     private StepBuilderFactory stepBuilderFactory;
 
     @Autowired
     public BatchJobConfiguration(JobBuilderFactory jobBuilderFactory,
-                                 @Value("application.batch.inputPath") String inputPath,
+                                 @Value("${application.batch.inputPath}") String inputPath,
                                  StepBuilderFactory stepBuilderFactory) {
         this.jobBuilderFactory = jobBuilderFactory;
         this.inputPath = inputPath;
@@ -63,33 +74,99 @@ public class BatchJobConfiguration {
                 .build();
     }
 
+    /**
+     * The purpose of the validator is to validate the job parameters that are input to the job.
+     * </br>
+     * In this case we will validate if the parameter FILE_NAME is valid and if the input file if refers exists.
+     *
+     * @return Parameters validator
+     */
     @Bean
     public JobParametersValidator validator() {
-        return jobParameters -> {
-            String fileName = jobParameters.getString(Constants.JOB_PARAM_FILE_NAME);
-            if (!StringUtils.hasLength(fileName)) {
-                throw new JobParametersInvalidException("The patient-batch-loader.fileName parameter is required");
-            }
+        return new JobParametersValidator() {
+            @Override
+            public void validate(JobParameters jobParameters) throws JobParametersInvalidException {
+                String fileName = jobParameters.getString(Constants.JOB_PARAM_FILE_NAME);
 
-            Path file = Paths.get(inputPath + File.separator + fileName);
-            if (Files.notExists(file) || !Files.isReadable(file)) {
-                throw new JobParametersInvalidException("The 'input path' + 'fileName' parameter needs to be a valid file location");
+                log.debug("Starting validator with: {}", fileName);
+
+                if (!StringUtils.hasLength(fileName)) {
+                    throw new JobParametersInvalidException("The patient-batch-loader.fileName parameter is required");
+                }
+
+                Path file = Paths.get(inputPath + File.separator + fileName);
+                if (!file.toFile().exists() || !Files.isReadable(file)) {
+                    throw new JobParametersInvalidException("The 'input path' + 'fileName' parameter needs to be a valid file location");
+                }
             }
         };
     }
 
+    // chunk processing requires a reader, processor and writer
     @Bean
-    public Step step() throws Exception {
+    public Step step(ItemReader<PatientDTO> itemReader) throws Exception {
         return this.stepBuilderFactory
                 .get(Constants.STEP_NAME)
-                .tasklet(new Tasklet() {
-                    @Override
-                    public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) throws Exception {
-                        System.err.println("Hello world!");
-                        return RepeatStatus.FINISHED;
-                    }
-                })
+                .<PatientDTO, PatientDTO>chunk(2)
+                .reader(itemReader)
+                .processor(processor())
+                .writer(writer())
                 .build();
+    }
+
+    @Bean
+    @StepScope //allows to inject values from the step context
+    public FlatFileItemReader<PatientDTO> itemReader(@Value("#{jobParameters['" + Constants.JOB_PARAM_FILE_NAME + "']}") String fileName) {
+
+        return new FlatFileItemReaderBuilder<PatientDTO>()
+                .name(Constants.ITEM_READER_NAME)
+                .resource(new FileSystemResource(
+                        Paths.get(inputPath + File.separator + fileName)
+                ))
+                .linesToSkip(1)
+                .lineMapper(lineMapper())
+                .build();
+    }
+
+    @Bean
+    public LineMapper<PatientDTO> lineMapper() {
+        DefaultLineMapper<PatientDTO> mapper = new DefaultLineMapper<>();
+        mapper.setFieldSetMapper(fieldSet -> PatientDTO.builder()
+                .sourceId(fieldSet.readString(0))
+                .firstName(fieldSet.readString(1))
+                .middleInitial(fieldSet.readString(2))
+                .lastName(fieldSet.readString(3))
+                .emailAddress(fieldSet.readString(4))
+                .phoneNumber(fieldSet.readString(5))
+                .street(fieldSet.readString(6))
+                .city(fieldSet.readString(7))
+                .state(fieldSet.readString(8))
+                .zip(fieldSet.readString(9))
+                .birthdate(fieldSet.readString(10))
+                .action(fieldSet.readString(11))
+                .ssn(fieldSet.readString(12))
+                .build());
+        mapper.setLineTokenizer(new DelimitedLineTokenizer());// ',' by default
+        return mapper;
+    }
+
+    @Bean
+    @StepScope
+    public PassThroughItemProcessor<PatientDTO> processor() {
+        return new PassThroughItemProcessor<>();
+    }
+
+    @Bean
+    @StepScope
+    public ItemWriter<PatientDTO> writer() {
+        return new ItemWriter<PatientDTO>() {
+            @Override
+            public void write(List<? extends PatientDTO> list) throws Exception {
+                for (PatientDTO patientDTO : list) {
+                    log.debug("Writing items: " + patientDTO);
+                }
+            }
+        };
     }
 
 }
