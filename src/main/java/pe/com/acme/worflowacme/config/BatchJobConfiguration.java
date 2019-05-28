@@ -9,6 +9,7 @@ import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.configuration.support.JobRegistryBeanPostProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.database.JpaItemWriter;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.LineMapper;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
@@ -16,19 +17,26 @@ import org.springframework.batch.item.file.mapping.DefaultLineMapper;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.batch.item.support.PassThroughItemProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.util.StringUtils;
+import pe.com.acme.worflowacme.domain.PatientEntity;
 import pe.com.acme.worflowacme.dto.PatientDTO;
 import pe.com.acme.worflowacme.util.Constants;
 
+import javax.persistence.EntityManagerFactory;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * Created by Ivan on 22/05/2019.
@@ -47,13 +55,17 @@ public class BatchJobConfiguration {
     // steps are configured to use the concept of a tasklet. tasklet defines what task the step will perform
     private StepBuilderFactory stepBuilderFactory;
 
+    private EntityManagerFactory acmeEntityManager;
+
     @Autowired
     public BatchJobConfiguration(JobBuilderFactory jobBuilderFactory,
                                  @Value("${application.batch.inputPath}") String inputPath,
-                                 StepBuilderFactory stepBuilderFactory) {
+                                 StepBuilderFactory stepBuilderFactory,
+                                 @Qualifier("acmeEntityManager") EntityManagerFactory acmeEntityManager) {
         this.jobBuilderFactory = jobBuilderFactory;
         this.inputPath = inputPath;
         this.stepBuilderFactory = stepBuilderFactory;
+        this.acmeEntityManager = acmeEntityManager;
     }
 
     // the goal of JobRegistryBeanPostProcessor is to register all jobs with the job registry as they are created.
@@ -104,13 +116,15 @@ public class BatchJobConfiguration {
 
     // chunk processing requires a reader, processor and writer
     @Bean
-    public Step step(ItemReader<PatientDTO> itemReader) throws Exception {
+    public Step step(ItemReader<PatientDTO> itemReader,
+                     Function<PatientDTO, PatientEntity> processor,
+                     JpaItemWriter<PatientEntity> writer) throws Exception {
         return this.stepBuilderFactory
                 .get(Constants.STEP_NAME)
-                .<PatientDTO, PatientDTO>chunk(2)
+                .<PatientDTO, PatientEntity>chunk(2)
                 .reader(itemReader)
-                .processor(processor())
-                .writer(writer())
+                .processor(processor)
+                .writer(writer)
                 .build();
     }
 
@@ -152,21 +166,32 @@ public class BatchJobConfiguration {
 
     @Bean
     @StepScope
-    public PassThroughItemProcessor<PatientDTO> processor() {
-        return new PassThroughItemProcessor<>();
+    public Function<PatientDTO, PatientEntity> processor() {
+        return patientDTO -> {
+            return PatientEntity.builder()
+                    .sourceId(patientDTO.getSourceId())
+                    .firstName(patientDTO.getFirstName())
+                    .middleInitial(patientDTO.getMiddleInitial())
+                    .lastName(patientDTO.getLastName())
+                    .emailAddress(patientDTO.getEmailAddress())
+                    .phoneNumber(patientDTO.getPhoneNumber())
+                    .street(patientDTO.getStreet())
+                    .city(patientDTO.getCity())
+                    .state(patientDTO.getState())
+                    .zipCode(patientDTO.getZip())
+                    .birthDate(LocalDate.parse(patientDTO.getBirthdate(), DateTimeFormatter.ofPattern("M/dd/yyyy")))
+                    .socialSecurityNumber(patientDTO.getSsn())
+                    .creationDateTime(LocalDateTime.now())
+                    .build();
+        };
     }
 
     @Bean
     @StepScope
-    public ItemWriter<PatientDTO> writer() {
-        return new ItemWriter<PatientDTO>() {
-            @Override
-            public void write(List<? extends PatientDTO> list) throws Exception {
-                for (PatientDTO patientDTO : list) {
-                    log.debug("Writing items: " + patientDTO);
-                }
-            }
-        };
+    public JpaItemWriter<PatientEntity> writer() {
+        JpaItemWriter<PatientEntity> writer = new JpaItemWriter<>();
+        writer.setEntityManagerFactory(acmeEntityManager);
+        return writer;
     }
 
 }

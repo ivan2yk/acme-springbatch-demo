@@ -17,10 +17,10 @@ spring:
 
 acme:
   datasource:
-    url: jdbc:h2:mem:acme
-    username: sa
-    password: sa
-    driver-class-name: org.h2.Driver
+    url: jdbc:postgresql://localhost:5432/acme
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
     jdbcUrl: ${acme.datasource.url}
 
 # logging
@@ -31,4 +31,4 @@ logging:
 # application specific properties
 application:
   batch:
-    inputPath: data
+    inputPath: D:\workspaces\workspace-pluralsight\worflowacme\data
