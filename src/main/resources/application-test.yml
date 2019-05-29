@@ -32,4 +32,4 @@ logging:
 # application specific properties
 application:
   batch:
-    inputPath: D:\workspaces\workspace-pluralsight\worflowacme\data
+    inputPath: data
