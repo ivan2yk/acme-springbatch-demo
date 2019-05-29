@@ -5,10 +5,7 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.springframework.batch.core.Job;
-import org.springframework.batch.core.JobParameter;
-import org.springframework.batch.core.JobParameters;
-import org.springframework.batch.core.StepExecution;
+import org.springframework.batch.core.*;
 import org.springframework.batch.item.database.JpaItemWriter;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.test.MetaDataInstanceFactory;
@@ -56,6 +53,9 @@ public class BatchJobConfigurationTest {
     private Job job;
 
     @Autowired
+    private JobParametersValidator validator;
+
+    @Autowired
     private FlatFileItemReader<PatientDTO> reader;
 
     @Autowired
@@ -80,6 +80,24 @@ public class BatchJobConfigurationTest {
     public void test() {
         assertNotNull(job);
         assertEquals(Constants.JOB_NAME, job.getName());
+    }
+
+    @Test(expected = JobParametersInvalidException.class)
+    public void givenNotJobParam_whenValidator_thenJobParametersInvalidException() throws JobParametersInvalidException {
+        Map<String, JobParameter> params = new HashMap<>();
+        params.put(Constants.JOB_PARAM_FILE_NAME, new JobParameter(""));
+        jobParameters = new JobParameters(params);
+
+        validator.validate(jobParameters);
+    }
+
+    @Test(expected = JobParametersInvalidException.class)
+    public void givenFileNotFound_whenValidator_thenJobParametersInvalidException() throws JobParametersInvalidException {
+        Map<String, JobParameter> params = new HashMap<>();
+        params.put(Constants.JOB_PARAM_FILE_NAME, new JobParameter("test-unit-testing.txt"));
+        jobParameters = new JobParameters(params);
+
+        validator.validate(jobParameters);
     }
 
     @Test
