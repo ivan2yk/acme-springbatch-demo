@@ -47,6 +47,7 @@ public class DatabaseAcmeConfiguration {
         Properties jpaProps = new Properties();
         jpaProps.put("hibernate.hbm2ddl.auto", "none");
         jpaProps.put("hibernate.dialect", "org.hibernate.dialect.PostgreSQL9Dialect");
+        jpaProps.put("hibernate.temp.use_jdbc_metadata_defaults", "false");
         jpaProps.put("hibernate.jdbc.fetch_size", "200");
         jpaProps.put("hibernate.jdbc.batch_size", "100");
         jpaProps.put("hibernate.order_inserts", "true");
@@ -59,25 +60,7 @@ public class DatabaseAcmeConfiguration {
         return emfBean;
     }
 
-    /*@Bean
-    public LocalContainerEntityManagerFactoryBean acmeEntityManager(EntityManagerFactoryBuilder entityManagerFactoryBuilder,
-                                                                    @Qualifier("acmeDataSource") DataSource dataSource) {
-        Map<String, Object> props = new HashMap<>();
-        props.put("hibernate.hbm2ddl.auto", "none");
-        props.put("hibernate.dialect", "org.hibernate.dialect.PostgreSQL9Dialect");
-        props.put("hibernate.temp.use_jdbc_metadata_defaults", "false");
-        props.put("hibernate.show_sql", "true");
-        props.put("hibernate.format_sql", "true");
-
-        return entityManagerFactoryBuilder
-                .dataSource(dataSource)
-                .packages("pe.com.acme.worflowacme.domain")
-                .persistenceUnit("acmePU")
-                .properties(props)
-                .build();
-    }*/
-
-    @Bean
+    @Bean(name = "acmeTransactionManager")
     public PlatformTransactionManager acmeTransactionManager() {
         return new JpaTransactionManager(acmeEntityManager().getObject());
     }

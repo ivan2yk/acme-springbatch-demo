@@ -8,20 +8,19 @@ import org.springframework.batch.core.configuration.annotation.StepBuilderFactor
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.configuration.support.JobRegistryBeanPostProcessor;
 import org.springframework.batch.item.ItemReader;
-import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JpaItemWriter;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.LineMapper;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
 import org.springframework.batch.item.file.mapping.DefaultLineMapper;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
-import org.springframework.batch.item.support.PassThroughItemProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.util.StringUtils;
 import pe.com.acme.worflowacme.domain.PatientEntity;
 import pe.com.acme.worflowacme.dto.PatientDTO;
@@ -35,7 +34,6 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 import java.util.function.Function;
 
 /**
@@ -57,15 +55,19 @@ public class BatchJobConfiguration {
 
     private EntityManagerFactory acmeEntityManager;
 
+    private PlatformTransactionManager acmeTransactionManager;
+
     @Autowired
     public BatchJobConfiguration(JobBuilderFactory jobBuilderFactory,
                                  @Value("${application.batch.inputPath}") String inputPath,
                                  StepBuilderFactory stepBuilderFactory,
-                                 @Qualifier("acmeEntityManager") EntityManagerFactory acmeEntityManager) {
+                                 @Qualifier("acmeEntityManager") EntityManagerFactory acmeEntityManager,
+                                 @Qualifier("acmeTransactionManager") PlatformTransactionManager acmeTransactionManager) {
         this.jobBuilderFactory = jobBuilderFactory;
         this.inputPath = inputPath;
         this.stepBuilderFactory = stepBuilderFactory;
         this.acmeEntityManager = acmeEntityManager;
+        this.acmeTransactionManager = acmeTransactionManager;
     }
 
     // the goal of JobRegistryBeanPostProcessor is to register all jobs with the job registry as they are created.
@@ -121,7 +123,8 @@ public class BatchJobConfiguration {
                      JpaItemWriter<PatientEntity> writer) throws Exception {
         return this.stepBuilderFactory
                 .get(Constants.STEP_NAME)
-                .<PatientDTO, PatientEntity>chunk(2)
+                .transactionManager(acmeTransactionManager)//solve no active transaction
+                .<PatientDTO, PatientEntity>chunk(1000)
                 .reader(itemReader)
                 .processor(processor)
                 .writer(writer)
@@ -188,7 +191,7 @@ public class BatchJobConfiguration {
 
     @Bean
     @StepScope
-    public JpaItemWriter<PatientEntity> writer() {
+    public JpaItemWriter<PatientEntity> writer() throws Exception {
         JpaItemWriter<PatientEntity> writer = new JpaItemWriter<>();
         writer.setEntityManagerFactory(acmeEntityManager);
         return writer;

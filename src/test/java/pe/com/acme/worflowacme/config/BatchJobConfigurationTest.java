@@ -33,6 +33,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.function.Function;
 
 import static org.junit.Assert.*;
@@ -40,14 +41,15 @@ import static org.junit.Assert.*;
 /**
  * Created by Ivan on 24/05/2019.
  */
-@Transactional
 @RunWith(SpringRunner.class)
 @SpringBootTest
 @ActiveProfiles("test")
-@TestExecutionListeners({DependencyInjectionTestExecutionListener.class,
+@TestExecutionListeners({
+        DependencyInjectionTestExecutionListener.class,
         StepScopeTestExecutionListener.class,
         TransactionalTestExecutionListener.class})
 @Slf4j
+@Transactional
 public class BatchJobConfigurationTest {
 
     @Autowired
@@ -157,9 +159,12 @@ public class BatchJobConfigurationTest {
 
         StepExecution stepExecution = MetaDataInstanceFactory.createStepExecution();
 
-        StepScopeTestUtils.doInStepScope(stepExecution, () -> {
-            writer.write(Arrays.asList(entity));
-            return null;
+        StepScopeTestUtils.doInStepScope(stepExecution, new Callable<Integer>() {
+            @Override
+            public Integer call() throws Exception {
+                writer.write(Arrays.asList(entity));
+                return 1;
+            }
         });
 
         assertTrue(patientRepository.findAll().size() > 0);
